@@ -20,7 +20,7 @@
 surface cglSurfaceDielectricBasic
 [[ string help = "Dielectric surface combining Diffuse color and specular glossy Fresnel reflections" ]]
 (
-	color diffuse_color = 0.5
+	color diffuse_color = color(0.5)
 		[[ string help = "The Diffuse color of the material" ]],
 	float IOR = 1.5
 		[[ string help = "The Refractive Index of the material",
