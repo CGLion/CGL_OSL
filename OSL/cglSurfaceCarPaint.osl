@@ -1,0 +1,76 @@
+/* 
+ * CG-Lion Surface-Dielectric-Basic OSL shader written by Oded Erell (c)2020
+ *
+ * Description:
+ * Outputs a Dielectric surface combining Diffuse color and glossy Fresnel reflections.
+ * Parameters:
+ * diffuse_color: The Diffuse color of the material.
+ * IOR: The Refractive Index of the material.
+ * roughness: Specular reflection Roughness.
+ * normal: Normal vector input.
+ *
+ * This shader was tested in the following renderers:
+ * Cycles for Blender 2.83 (CPU)
+ * Arnold 6 for Maya 2020 (CPU)
+ * V-Ray Next for 3ds max 2020 (CPU)
+ */
+
+#include "stdosl.h"
+
+
+float simple_fresnel(float i_angle, float ior)
+[[ string help = "Calculate Fresnel reflection weight (Schlick)" ]]
+{
+	float a = pow(ior - 1, 2) / pow(ior + 1, 2);
+	return a + (1 - a) * pow(( 1 - cos(i_angle)),5);
+}
+
+surface cglSurfaceCarPaint
+[[ string help = "Dielectric surface combining Diffuse color and specular glossy Fresnel reflections" ]]
+(
+	color base_color_facing = color(0.1, 0.2, 0.9)
+		[[ string help = "The base layer facing color" ]],
+	color base_color_side = color(0.05, 0.05, 0.45)
+		[[ string help = "The base layer side color" ]],
+	float base_color_blend_curve = 2.0
+		[[ string help = "The base layer color blend curve power (1 = linear)",
+		float min = 0.0, float max = 1.0]],
+	float base_metallic = 0.5
+		[[ string help = "The metallic weight of the base layer",
+		float min = 0.0, float max = 1.0]],
+	float base_dielectric_ior = 1.5
+		[[ string help = "Base layer dielectric ior (also serves as metallic grasing angle reflection blend)",
+		float min = 1.0, float max = 2.0]],
+	float base_layer_roughness = 0.25
+		[[ string help = "The base layer metallic roughness",
+		float min = 0.0, float max = 0.5]],
+	float clear_coat_weight = 1.0
+		[[ string help = "Clear coat layer weight",
+		float min = 0.0, float max = 1.0]],
+	float clear_coat_ior = 1.6
+		[[ string help = "The Refractive Index of clear coat layer",
+		float min = 1.0, float max = 5.0]],
+	float clear_coat_roughness = 0.0
+		[[ string help = "Clear coat layer Roughness",
+		float min = 0.0, float max = 1.0]],
+	output closure color surface_out = 0
+		[[ string help = "Final surface output" ]]
+) 
+{
+	float incident_angle = acos(abs(dot(-I, N)));
+	// calculate the linear facing ratio:
+	float facing_ratio = incident_angle / M_PI_2;
+	// calculate base layer Fresnel:
+	float base_fr = simple_fresnel(incident_angle, base_dielectric_ior);
+	// caculate clear coat Fresnel:
+	float clear_coat_fr = simple_fresnel(incident_angle, clear_coat_ior);
+	float facing_ratio_curved = pow(facing_ratio, base_color_blend_curve);
+	color base_color_final = ((base_color_facing * (1 - facing_ratio_curved)) + (base_color_side * facing_ratio_curved));
+	closure color base_layer_dielectric = base_color_final * diffuse(N);
+	closure color base_layer_metallic = base_color_final * microfacet ("ggx", N, vector(0,0,1), base_layer_roughness, base_layer_roughness, 0, 0);
+	closure color base_layer = base_layer_dielectric * (1 - base_metallic) + base_layer_metallic * base_metallic;
+	base_layer = base_layer * (1 - base_fr) + microfacet ("ggx", N, vector(0,0,1), base_layer_roughness, base_layer_roughness, 0, 0) * base_fr;
+	closure color clear_coat_layer = microfacet ("ggx", N, vector(0,0,1), clear_coat_roughness, clear_coat_roughness, 0, 0);
+	float clear_coat_final_weight = clear_coat_fr * clear_coat_weight;
+	surface_out = base_layer * (1.0 - clear_coat_final_weight) + clear_coat_layer * clear_coat_final_weight;
+}

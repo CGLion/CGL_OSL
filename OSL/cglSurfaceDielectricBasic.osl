@@ -34,7 +34,7 @@ surface cglSurfaceDielectricBasic
 ) 
 {
 	float A, B;
-	float c = fabs(dot(I, Normal));
+	float c = fabs(dot(-I, Normal));
 	float g = IOR * IOR - 1 + c * c;
 	float Fr = 1.0;
 	if (g > 0) {
