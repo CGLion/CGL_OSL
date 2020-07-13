@@ -1,2 +1,5 @@
 # Compiled Object files
 *.oso
+
+# 3D scene files
+Scenes/*

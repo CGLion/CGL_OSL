@@ -18,7 +18,7 @@
 
 #include "stdosl.h"
 
-
+// Calculates simplified Fresnel reflection weight (Schlick)
 float simple_fresnel(float i_angle, float ior)
 [[ string help = "Calculate Fresnel reflection weight (Schlick)" ]]
 {
@@ -26,7 +26,9 @@ float simple_fresnel(float i_angle, float ior)
 	return a + (1 - a) * pow(( 1 - cos(i_angle)),5);
 }
 
+// Returns tangent space matrix
 matrix tangentSpace()
+[[ string help = "Returns tangent space matrix" ]]
 {
 	vector tan = dPdu;
 	vector btan = dPdv;
@@ -38,14 +40,25 @@ matrix tangentSpace()
 	return TS;
 }
 
+normal bumpNormal(float hp, float hu, float hv, float uv_offset, float multiplier)
+{
+	vector vec_p = vector( 0.0, 		0.0, 		hp * multiplier );
+	vector vec_u = vector( uv_offset, 	0.0, 		hu * multiplier );
+	vector vec_v = vector( 0.0, 		uv_offset, 	hv * multiplier );
+	vector vec_slope_u = vec_u - vec_p;
+	vector vec_slope_v = vec_v - vec_p;
+	vector nrm_raw = normalize( cross( vec_slope_u, vec_slope_v ) );
+	return transform(tangentSpace(),nrm_raw);
+}
+
 surface cglSurfaceCarPaint
 [[ string help = "Dielectric surface combining Diffuse color and specular glossy Fresnel reflections" ]]
 (
-	color base_color_facing = color(0.1, 0.2, 0.9)
+	color base_color_facing = color( 0.1, 0.2, 0.9 )
 		[[ string help = "The base layer facing color" ]],
-	color base_color_side = color(0.05, 0.05, 0.45)
+	color base_color_side = color( 0.05, 0.05, 0.45 )
 		[[ string help = "The base layer side color" ]],
-	float base_color_blend_curve = 2.0
+	float base_color_blend_curve = 1.5
 		[[ string help = "The base layer color blend curve power (1 = linear)",
 		float min = 0.0, float max = 1.0]],
 	float base_metallic = 0.5
@@ -57,22 +70,39 @@ surface cglSurfaceCarPaint
 	float base_layer_roughness = 0.25
 		[[ string help = "The base layer metallic roughness",
 		float min = 0.0, float max = 0.5]],
+	float metallic_flakes_weight = 1.0
+		[[ string help = "Metallic flakes scale",
+		float min = 0.0, float max = 1.0]],
+	color metallic_flakes_color = color( 0.2, 0.4, 1.0 )
+		[[ string help = "The base layer facing color" ]],
 	float metallic_flakes_density = 1.0
 		[[ string help = "Metallic flakes scale",
 		float min = 0.001, float max = 1000.0]],
-	float metallic_flakes_size = 0.2
+	float metallic_flakes_size = 0.3
 		[[ string help = "Metallic flakes scale",
 		float min = 0.001, float max = 1000.0]],
-	float metallic_flakes_roughness = 0.2
+	float metallic_flakes_roughness = 0.15
 		[[ string help = "Metallic flakes roughness",
 		float min = 0.0, float max = 1.0]],
+	float metallic_flakes_uniformity = 0.5
+		[[ string help = "Metallic flakes roughness",
+		float min = 0.0, float max = 5.0]],
 	float clear_coat_weight = 1.0
 		[[ string help = "Clear coat layer weight",
 		float min = 0.0, float max = 1.0]],
 	float clear_coat_ior = 1.6
 		[[ string help = "The Refractive Index of clear coat layer",
 		float min = 1.0, float max = 5.0]],
-	float clear_coat_roughness = 0.0
+	float clear_coat_roughness = 0.002
+		[[ string help = "Clear coat layer Roughness",
+		float min = 0.0, float max = 1.0]],
+	float clear_coat_bump_strength = 0.1
+		[[ string help = "Clear coat layer Roughness",
+		float min = 0.0, float max = 1.0]],
+	float clear_coat_bump_density = 0.5
+		[[ string help = "Clear coat layer Roughness",
+		float min = 0.0, float max = 1.0]],
+	float clear_coat_bump_uv_offset = 0.1
 		[[ string help = "Clear coat layer Roughness",
 		float min = 0.0, float max = 1.0]],
 	output closure color surface_out = 0
@@ -89,20 +119,25 @@ surface cglSurfaceCarPaint
 	float facing_ratio_curved = pow(facing_ratio, base_color_blend_curve);
 	color base_color_final = ((base_color_facing * (1 - facing_ratio_curved)) + (base_color_side * facing_ratio_curved));
 	// Metallic flakes:
-	float scale = metallic_flakes_density * 100;
+	float flakes_scale = metallic_flakes_density * 1000;
 	point os_pos = transform("common", "object", P);
-	float flakes_mask = noise("usimplex", os_pos * scale) >= (1.0 - metallic_flakes_size);
-	//color flakes_normal_raw = normalize( noise( "cell", os_pos * scale ) + vector( -0.5, -0.5, 2.0 ) );
-	vector flakes_normal_raw = normalize( vector(-0.5, -0.5, 0.5) + noise( "cell", os_pos * scale ) );
+	float flakes_mask = ( noise("usimplex", os_pos * flakes_scale) >= (1.0 - metallic_flakes_size) ) * metallic_flakes_weight;
+	vector flakes_normal_raw = normalize( vector(-0.5, -0.5, metallic_flakes_uniformity) + noise( "cell", os_pos * flakes_scale ) );
 	normal flakes_normal = transform(tangentSpace(),flakes_normal_raw);
-	// Closures
+	// Clear coat bump:
+	float coat_bump_scale = clear_coat_bump_density * 100;
+	float hp = noise( "uperlin", os_pos * coat_bump_scale );
+	float hu = noise( "uperlin", ( os_pos + ( dPdu * clear_coat_bump_uv_offset ) ) * coat_bump_scale );
+	float hv = noise( "uperlin", ( os_pos + ( dPdv * clear_coat_bump_uv_offset ) ) * coat_bump_scale );
+	normal clear_coat_normal = bumpNormal( hp, hu, hv, clear_coat_bump_uv_offset, clear_coat_bump_strength);
+	// Closures:
 	closure color base_layer_dielectric = base_color_final * diffuse(N);
 	closure color base_layer_metallic = base_color_final * microfacet ("ggx", N, vector(0,0,1), base_layer_roughness, base_layer_roughness, 0, 0);
 	closure color base_layer = base_layer_dielectric * (1 - base_metallic) + base_layer_metallic * base_metallic;
 	base_layer = base_layer * (1 - base_fr) + microfacet ("ggx", N, vector(0,0,1), base_layer_roughness, base_layer_roughness, 0, 0) * base_fr;
-	closure color metallic_flakes_layer = base_color_facing * microfacet ("ggx", flakes_normal, vector(0,0,1), metallic_flakes_roughness, metallic_flakes_roughness, 0, 0);
+	closure color metallic_flakes_layer = metallic_flakes_color * microfacet ("ggx", flakes_normal, vector(0,0,1), metallic_flakes_roughness, metallic_flakes_roughness, 0, 0);
 	closure color base_Plus_flakes = base_layer * (1 - flakes_mask) + metallic_flakes_layer * flakes_mask;
-	closure color clear_coat_layer = microfacet ("ggx", N, vector(0,0,1), clear_coat_roughness, clear_coat_roughness, 0, 0);
+	closure color clear_coat_layer = microfacet ("ggx", clear_coat_normal, vector(0,0,1), clear_coat_roughness, clear_coat_roughness, 0, 0);
 	float clear_coat_final_weight = clear_coat_fr * clear_coat_weight;
 	surface_out = base_Plus_flakes * (1.0 - clear_coat_final_weight) + clear_coat_layer * clear_coat_final_weight;
 	//surface_out =  flakes_normal_raw * diffuse(N);
