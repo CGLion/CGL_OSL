@@ -1,0 +1,47 @@
+/* 
+ * CG-Lion Color-Distance-Blend OSL shader written by Oded Erell (c)2020
+ *
+ * Description:
+ * Outputs a blend between 2 color sources according to surface view angle.
+ * Parameters:
+ * facing_color: The color (or texture) that will appear at perpendicular view angle.
+ * side_color: The color (or texture) that will appear at grazing view angle.
+ * base_blend: The percent of side_color that is mixed with facing_color at perpendicular view angle.
+ * curve_exponent: A power exponent value by which the blend value is raised to control the blend curve.
+ * for example, a value of 1.0 will output a linear blend, while a value of 3.0
+ * will output a 'slow' curve that shows facing_color at more angles and side_color only at extreme grazing angle.
+ *
+ * This shader was tested in the following renderers:
+ * Cycles for Blender 2.83 (CPU)
+ * Arnold 6 for Maya 2020 (CPU)
+ * Arnold for 3ds max 2020
+ * V-Ray Next for 3ds max 2020 (CPU)
+ * Appleseed 2 beta for Blender
+ */
+ 
+ #include "stdosl.h"
+ 
+shader cglColorAngleBlend
+[[ string help = "Blend colors by view angle" ]]
+(
+	color near_color = color(0, 0, 0)
+		[[ string help = "The color (or texture) that will appear at perpendicular view angle" ]],
+	color far_color = color(1, 1, 1)
+		[[ string help = "The color (or texture) that will appear at grazing view angle" ]],
+	float near_distance = 0.1
+		[[ string help = "The percent of side_color that is mixed with facing_color at perpendicular view angle",
+		float min = 0.0, float max = 1000000.0]],
+	float far_distance = 1.0
+		[[ string help = "The percent of side_color that is mixed with facing_color at perpendicular view angle",
+		float min = 0.0, float max = 1000000.0]],
+	float curve_exponent = 1.0
+		[[ string help = "A power exponent value by which the blend value is raised to control the blend curve",
+		float min = 0.001, float max = 10.0]],
+	output color color_out = color(1, 1, 1))
+{
+	// calculate the linear facing ratio:
+	float cam_dist = length( P - point("camera",0.0, 0.0, 0.0) );
+	float final_blend_ratio = pow( ( clamp( cam_dist - near_distance, 0.0, 1.0) / ( far_distance - near_distance ) ), curve_exponent);
+	// blend and output the final color:
+	color_out = ((close_color * (1 - final_blend_ratio)) + (distant_color * final_blend_ratio));
+}

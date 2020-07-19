@@ -81,12 +81,21 @@ surface cglSurfaceCarPaint
 	float metallic_flakes_size = 0.3
 		[[ string help = "Metallic flakes scale",
 		float min = 0.001, float max = 1000.0]],
+	float metallic_flakes_overall_scale = 1.0
+		[[ string help = "scales all shader effects",
+		float min = 0.0, float max = 1.0]],
 	float metallic_flakes_roughness = 0.15
 		[[ string help = "Metallic flakes roughness",
 		float min = 0.0, float max = 1.0]],
 	float metallic_flakes_uniformity = 0.5
 		[[ string help = "Metallic flakes roughness",
 		float min = 0.0, float max = 5.0]],
+	float metallic_flakes_distance_fade = 2.0
+		[[ string help = "Metallic flakes roughness",
+		float min = 0.0, float max = 1000.0]],
+	float metallic_flakes_distance_full = 0.5
+		[[ string help = "Metallic flakes roughness",
+		float min = 0.0, float max = 1000.0]],
 	float clear_coat_weight = 1.0
 		[[ string help = "Clear coat layer weight",
 		float min = 0.0, float max = 1.0]],
@@ -119,9 +128,12 @@ surface cglSurfaceCarPaint
 	float facing_ratio_curved = pow(facing_ratio, base_color_blend_curve);
 	color base_color_final = ((base_color_facing * (1 - facing_ratio_curved)) + (base_color_side * facing_ratio_curved));
 	// Metallic flakes:
-	float flakes_scale = metallic_flakes_density * 1000;
+	float flakes_scale = metallic_flakes_density * 1000 / metallic_flakes_overall_scale;
 	point os_pos = transform("common", "object", P);
-	float flakes_mask = ( noise("usimplex", os_pos * flakes_scale) >= (1.0 - metallic_flakes_size) ) * metallic_flakes_weight;
+	float cam_dist = length( P - point("camera",0.0, 0.0, 0.0) );
+	float flakes_distance_blend = 1.0 - clamp( cam_dist - metallic_flakes_distance_full, 0.0, 1.0) / ( metallic_flakes_distance_fade - metallic_flakes_distance_full );
+	float flakes_weight = metallic_flakes_weight * flakes_distance_blend;
+	float flakes_mask = ( noise("usimplex", os_pos * flakes_scale) >= (1.0 - metallic_flakes_size) ) * flakes_weight;
 	vector flakes_normal_raw = normalize( vector(-0.5, -0.5, metallic_flakes_uniformity) + noise( "cell", os_pos * flakes_scale ) );
 	normal flakes_normal = transform(tangentSpace(),flakes_normal_raw);
 	// Clear coat bump:
