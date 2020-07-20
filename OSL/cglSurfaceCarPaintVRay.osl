@@ -102,7 +102,7 @@ surface cglSurfaceCarPaint
 		float min = 0.0, float max = 1.0]],
 	float clear_coat_bump_strength = 0.5
 		[[ string help = "Clear coat procedural bump strength",
-		float min = 0.0, float max = 100.0]],
+		float min = 0.0, float max = 10.0]],
 	float clear_coat_bump_density = 1.0
 		[[ string help = "Clear coat procedural bump density",
 		float min = 0.0001, float max = 10000.0]],
@@ -120,9 +120,6 @@ surface cglSurfaceCarPaint
 	float incident_angle = acos(abs(dot(-I, N)));
 	// Get shading position in object-space:
 	point os_pos = transform("common", "object", P) * system_scale;
-	// Get shading tangents in object-space:
-	point os_tan_u = transform("common", "object", dPdu) * system_scale;
-	point os_tan_v = transform("common", "object", dPdv) * system_scale;
 
 	// Base layer:
 	// Calculate base layer Fresnel (Schlick) specular mix:
@@ -153,12 +150,11 @@ surface cglSurfaceCarPaint
 	// Clear coat bump internal scale factor:
 	float coat_bump_scale = clear_coat_bump_density * 100;
 	// Generate 3 height object-space perlin-noise  height samples:
-	float uv_offset = clear_coat_bump_uv_offset * ( 1.0 / system_scale );
 	float hp = noise( "uperlin", os_pos * coat_bump_scale );
-	float hu = noise( "uperlin", ( os_pos + ( os_tan_u * uv_offset ) ) * coat_bump_scale );
-	float hv = noise( "uperlin", ( os_pos + ( os_tan_u * uv_offset ) ) * coat_bump_scale );
+	float hu = noise( "uperlin", ( os_pos + ( dPdu * clear_coat_bump_uv_offset * system_scale ) ) * coat_bump_scale );
+	float hv = noise( "uperlin", ( os_pos + ( dPdv * clear_coat_bump_uv_offset * system_scale ) ) * coat_bump_scale );
 	// Caculate clear coat normals:
-	normal clear_coat_normal = bumpNormal( hp, hu, hv, uv_offset, clear_coat_bump_strength );
+	normal clear_coat_normal = bumpNormal( hp, hu, hv, clear_coat_bump_uv_offset * system_scale, clear_coat_bump_strength);
 
 	// Define Closures (BSDF's) and final shader output:
 	closure color base_layer_dielectric = base_color_final * diffuse(N);
@@ -167,7 +163,8 @@ surface cglSurfaceCarPaint
 	base_layer = base_layer * (1 - base_fr) + microfacet ("ggx", N, vector(0,0,1), base_layer_roughness, base_layer_roughness, 0, 0) * base_fr;
 	closure color metallic_flakes_layer = metallic_flakes_color * microfacet ("ggx", flakes_normal, vector(0,0,1), metallic_flakes_roughness, metallic_flakes_roughness, 0, 0);
 	closure color base_Plus_flakes = base_layer * (1 - flakes_mask) + metallic_flakes_layer * flakes_mask;
-	closure color clear_coat_layer = microfacet ("ggx", clear_coat_normal, vector(0,0,1), clear_coat_roughness, clear_coat_roughness, 0, 0);
+	// V-Ray Supported glossy normals
+	closure color clear_coat_layer = ward (clear_coat_normal, vector(0,0,1), clear_coat_roughness, clear_coat_roughness);
 	float clear_coat_final_weight = clear_coat_fr * clear_coat_weight;
 	surface_out = base_Plus_flakes * (1.0 - clear_coat_final_weight) + clear_coat_layer * clear_coat_final_weight;
 }
