@@ -17,11 +17,11 @@
 
 #include "stdosl.h"
 
-float simple_fresnel(float i_angle, float ior)
+float simple_fresnel(float ior, normal nrm)
 [[ string help = "Calculate Fresnel reflection weight (Schlick)" ]]
 {
-	float a = pow(ior - 1, 2) / pow(ior + 1, 2);
-	return a + (1 - a) * pow(( 1 - cos(i_angle)),5);
+	float a = pow((1 - ior) / (1 + ior), 2);
+	return a + (1 - a) * pow( 1 - fabs(dot(-I, nrm)),5);
 }
 
 surface cglSurfaceDielectricBasic
@@ -40,7 +40,6 @@ surface cglSurfaceDielectricBasic
 	output closure color surface_out = 0
 ) 
 {
-	float incident_angle = acos(abs(dot(-I, N)));
-	float Fr = simple_fresnel(incident_angle, IOR);
+	float Fr = simple_fresnel(IOR, Normal);
 	surface_out = (diffuse_color * diffuse (Normal)) * (1 - Fr) + (microfacet ("ggx", Normal, vector(0,0,1), roughness, roughness, 0, 0)) * Fr;
 }

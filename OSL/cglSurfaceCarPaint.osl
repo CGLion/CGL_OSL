@@ -19,7 +19,7 @@
 float simple_fresnel(float i_angle, float ior)
 [[ string help = "Calculate Fresnel reflection weight (Schlick's approximation)" ]]
 {
-	float a = pow(ior - 1, 2) / pow(ior + 1, 2);
+	float a = pow((1 - ior) / (1 + ior), 2);
 	return a + (1 - a) * pow(( 1 - cos(i_angle)),5);
 }
 
@@ -47,6 +47,12 @@ normal bumpNormal(float hp, float hu, float hv, float uv_offset, float multiplie
 	vector vec_slope_v = normalize( vec_v - vec_p );
 	vector nrm_raw = normalize( cross( vec_slope_u, vec_slope_v ) );
 	return transform(tangentSpace(),nrm_raw);
+}
+
+normal bumpNormalTest(vector pos, float dens, float mult)
+{
+	vector flakes_normal_raw = normalize( ( 1 - mult ) * vector( 0.0, 0.0, 1.0 ) + mult * ( vector(-0.5, -0.5, 0.5) + noise( "uperlin", pos * dens ) ) );
+	return transform(tangentSpace(),flakes_normal_raw);
 }
 
 surface cglSurfaceCarPaint
@@ -148,8 +154,6 @@ surface cglSurfaceCarPaint
 	normal flakes_normal = transform(tangentSpace(),flakes_normal_raw);
 
 	// Clear coat layer:
-	// Caculate clear coat Fresnel (Schlick):
-	float clear_coat_fr = simple_fresnel(incident_angle, clear_coat_ior);
 	// Clear coat bump internal scale factor:
 	float coat_bump_scale = clear_coat_bump_density * 100;
 	// Generate 3 height object-space perlin-noise  height samples:
@@ -158,7 +162,11 @@ surface cglSurfaceCarPaint
 	float hu = noise( "uperlin", ( os_pos + ( os_tan_u * uv_offset ) ) * coat_bump_scale );
 	float hv = noise( "uperlin", ( os_pos + ( os_tan_u * uv_offset ) ) * coat_bump_scale );
 	// Caculate clear coat normals:
-	normal clear_coat_normal = bumpNormal( hp, hu, hv, uv_offset, clear_coat_bump_strength );
+	//normal clear_coat_normal = bumpNormal( hp, hu, hv, uv_offset, clear_coat_bump_strength );
+	normal clear_coat_normal = bumpNormalTest( os_pos, coat_bump_scale, clear_coat_bump_strength );
+	float clear_coat_incident_angle = acos(abs(dot(-I, clear_coat_normal)));
+	// Caculate clear coat Fresnel (Schlick):
+	float clear_coat_fr = simple_fresnel(clear_coat_incident_angle, clear_coat_ior);
 
 	// Define Closures (BSDF's) and final shader output:
 	closure color base_layer_dielectric = base_color_final * diffuse(N);
