@@ -3,3 +3,6 @@
 
 # 3D scene files
 Scenes/*
+
+# Distribution packs
+Dist/*

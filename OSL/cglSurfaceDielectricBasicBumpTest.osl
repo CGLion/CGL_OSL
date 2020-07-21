@@ -17,6 +17,32 @@
 
 #include "stdosl.h"
 
+// Returns tangent space matrix
+matrix tangentSpace()
+[[ string help = "Returns tangent space matrix" ]]
+{
+	vector tan = dPdu;
+	vector btan = dPdv;
+	vector nrm = N;
+	matrix TS = matrix( tan[0]	, tan[1]	, tan[2]	, 0.0,
+						btan[0]	, btan[1]	, btan[2]	, 0.0,
+						nrm[0]	, nrm[1]	, nrm[2]	, 0.0,
+						0.0		, 0.0		, 0.0		, 1.0);
+	return TS;
+}
+
+// Calculates and returns a bump normal in tangent space from 3 float hights:
+normal bumpNormal(float hp, float hu, float hv, float uv_offset, float multiplier)
+{
+	vector vec_p = vector( 0.0, 		0.0, 		hp * multiplier );
+	vector vec_u = vector( uv_offset, 	0.0, 		hu * multiplier );
+	vector vec_v = vector( 0.0, 		uv_offset, 	hv * multiplier );
+	vector vec_slope_u = normalize( vec_u - vec_p );
+	vector vec_slope_v = normalize( vec_v - vec_p );
+	vector nrm_raw = normalize( cross( vec_slope_u, vec_slope_v ) );
+	return transform(tangentSpace(),nrm_raw);
+}
+
 float simple_fresnel(float ior, normal nrm)
 [[ string help = "Calculate Fresnel reflection weight (Schlick)" ]]
 {
