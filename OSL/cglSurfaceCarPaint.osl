@@ -92,7 +92,7 @@ surface cglSurfaceCarPaint
 	float clear_coat_roughness = 0.001
 		[[ string help = "Clear coat specular roughness",
 		float min = 0.0, float max = 1.0]],
-	float clear_coat_bump_strength = 0.5
+	float clear_coat_bump_strength = 0.1
 		[[ string help = "Clear coat procedural bump strength",
 		float min = 0.0, float max = 100.0]],
 	float clear_coat_bump_density = 1.0
@@ -143,9 +143,9 @@ surface cglSurfaceCarPaint
 	// Clear coat bump internal scale factor:
 	float coat_bump_scale = clear_coat_bump_density * 100;
 	// Caculate clear coat normals:
-	vector coat_bump_source = vector(-0.5, -0.5, 0.5) + noise( "uperlin", os_pos * coat_bump_scale );
-	vector coat_normal_raw = normalize( vector( 0.0, 0.0, 1.0 ) * ( 1 - clear_coat_bump_strength ) + coat_bump_source * clear_coat_bump_strength );
-	normal coat_normal = transform( tangentSpace(system_scale_unit), coat_normal_raw );
+	vector coat_bump_source = noise( "perlin", os_pos * coat_bump_scale );
+	//vector coat_normal_raw = normalize( mix( N, coat_bump_source, clear_coat_bump_strength ) );
+	normal coat_normal = normalize( mix( N, coat_bump_source, clear_coat_bump_strength ) );
 	// Caculate clear coat Fresnel (Schlick):
 	float coat_fr = simple_fresnel(coat_normal, clear_coat_ior);
 
