@@ -17,11 +17,13 @@
 
 #include "stdosl.h"
 
+// Calculates simplified Fresnel reflection weight (Schlick's approximation)
+// * Needed because not some systems dont support the microfacet closure's built in Fresnel
 float simple_fresnel(float ior, normal nrm)
 [[ string help = "Calculate Fresnel reflection weight (Schlick)" ]]
 {
-	float r = pow( ( 1 - ior ) / ( 1 + ior ), 2.0 );
-	return r + ( 1 - r ) * pow( 1 - fabs( dot( -I, nrm ) ), 5.0 );
+	float r = pow( ( 1.0 - ior ) / ( 1.0 + ior ), 2.0 );
+	return r + ( 1.0 - r ) * pow( 1.0 - fabs( dot( -I, nrm ) ), 5.0 );
 }
 
 surface cglSurfaceDielectricBasic
@@ -41,5 +43,5 @@ surface cglSurfaceDielectricBasic
 ) 
 {
 	float Fr = simple_fresnel(IOR, Normal);
-	surface_out = (diffuse_color * diffuse (Normal)) * (1 - Fr) + (microfacet ("ggx", Normal, vector(0,0,1), roughness, roughness, 0, 0)) * Fr;
+	surface_out = (diffuse_color * diffuse (Normal)) * (1 - Fr) + (microfacet ("ggx", Normal, roughness, 0.0, 0)) * Fr;
 }

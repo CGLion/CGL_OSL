@@ -16,11 +16,12 @@
 #include "stdosl.h"
 
 // Calculates simplified Fresnel reflection weight (Schlick's approximation)
+// * Needed because not some systems dont support the microfacet closure's built in Fresnel
 float simple_fresnel(normal nrm, float ior)
 [[ string help = "Calculate Fresnel reflection weight (Schlick's approximation)" ]]
 {
-	float r = pow( ( 1 - ior ) / ( 1 + ior ), 2 );
-	return r + ( 1 - r ) * pow( ( 1 - fabs( dot( -I, nrm ) ) ), 5 );
+	float r = pow( ( 1.0 - ior ) / ( 1.0 + ior ), 2.0 );
+	return r + ( 1.0 - r ) * pow( 1.0 - fabs( dot( -I, nrm ) ), 5.0 );
 }
 
 // Main surface shader:
@@ -138,14 +139,14 @@ surface cglSurfaceCarPaint
 	// Define Closures (BSDF's) and final shader output:
 	closure color base_layer;
 	closure color base_layer_dielectric = base_color_final * diffuse(N);
-	closure color base_layer_metallic = base_color_final * microfacet ("ggx", N, vector(0,0,1), base_roughness, base_roughness, 0, 0);
+	closure color base_layer_metallic = base_color_final * microfacet ("ggx", N, base_roughness, 0.0, 0);
 	base_layer = base_layer_dielectric * (1 - base_metallic) + base_layer_metallic * base_metallic;
-	base_layer = base_layer * (1 - base_fr) + microfacet ("ggx", N, vector(0,0,1), base_roughness, base_roughness, 0, 0) * base_fr;
+	base_layer = base_layer * (1 - base_fr) + microfacet ("ggx", N, base_roughness, 0.0, 0) * base_fr;
 	closure color metallic_flakes_layer;
-	metallic_flakes_layer = metallic_flakes_color * microfacet ("ggx", flakes_normal, vector(0,0,1), flakes_roughness, flakes_roughness, 0, 0);
+	metallic_flakes_layer = metallic_flakes_color * microfacet ("ggx", flakes_normal, flakes_roughness, 0.0, 0);
 	closure color base_Plus_flakes = ( base_layer * base_layer_weight ) * (1 - flakes_mask) + ( metallic_flakes_layer * metallic_flakes_weight ) * flakes_mask;
 	closure color clear_coat_layer;
-	clear_coat_layer = microfacet("ggx", coat_normal, coat_roughness, coat_roughness, 0);
+	clear_coat_layer = microfacet("ggx", coat_normal, coat_roughness, 0.0, 0);
 	float clear_coat_final_weight = coat_fr * clear_coat_weight;
 	surface_out = base_Plus_flakes * (1.0 - clear_coat_final_weight) + clear_coat_layer * clear_coat_final_weight;
 }
