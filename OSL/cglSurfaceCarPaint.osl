@@ -23,20 +23,6 @@ float simple_fresnel(normal nrm, float ior)
 	return r + ( 1 - r ) * pow( ( 1 - fabs( dot( -I, nrm ) ) ), 5 );
 }
 
-// Returns tangent space matrix
-matrix tangentSpace(float system_scale)
-[[ string help = "Returns tangent space matrix" ]]
-{
-	vector tan = normalize(dPdu);
-	vector btan = normalize(dPdv);
-	vector nrm = normalize(N);
-	matrix TS = matrix( tan[0]	, tan[1]	, tan[2]	, 0.0,
-						btan[0]	, btan[1]	, btan[2]	, 0.0,
-						nrm[0]	, nrm[1]	, nrm[2]	, 0.0,
-						0.0		, 0.0		, 0.0		, 1.0);
-	return TS;
-}
-
 // Main surface shader:
 surface cglSurfaceCarPaint
 [[ string help = "Dielectric surface combining Diffuse color and specular glossy Fresnel reflections" ]]
@@ -74,8 +60,8 @@ surface cglSurfaceCarPaint
 	float metallic_flakes_roughness = 0.2
 		[[ string help = "Metallic flakes metallic roughness",
 		float min = 0.0, float max = 1.0]],
-	float metallic_flakes_uniformity = 0.5
-		[[ string help = "The amount at which the metallic flakes conform to original surface nornal direction",
+	float metallic_flakes_direction_spread = 0.1
+		[[ string help = "The amount at which the metallic flakes deviate from the original surface nornal direction",
 		float min = 0.0, float max = 5.0]],
 	float metallic_flakes_distance_fade = 2.0
 		[[ string help = "Distance at which the metallic flakes fade completely",
@@ -136,16 +122,16 @@ surface cglSurfaceCarPaint
 	// Calculate metallic flakes final mix weight:
 	float flakes_weight = metallic_flakes_weight * flakes_distance_blend;
 	float flakes_mask = ( noise("usimplex", os_pos * flakes_scale) >= (1.0 - metallic_flakes_size) ) * flakes_weight;
-	vector flakes_normal_raw = normalize( vector(-0.5, -0.5, metallic_flakes_uniformity) + noise( "cell", os_pos * flakes_scale ) );
-	normal flakes_normal = transform( tangentSpace(system_scale_unit), flakes_normal_raw );
+	vector flakes_normal_source = ( noise( "cell", os_pos * flakes_scale ) * 2.0 ) - vector(1.0);
+	normal flakes_normal = normalize( mix( N, flakes_normal_source, metallic_flakes_direction_spread ) );
 
 	// Clear coat layer:
-	// Clear coat bump internal scale factor:
-	float coat_bump_scale = clear_coat_bump_density * 100;
+	// Clear normal bump multipy by internal factors (to keep input values convenient):
+	float coat_bump_density = clear_coat_bump_density * 100.0;
+	float coat_bump_strength = clear_coat_bump_strength * 0.075;
 	// Caculate clear coat normals:
-	vector coat_bump_source = noise( "perlin", os_pos * coat_bump_scale );
-	//vector coat_normal_raw = normalize( mix( N, coat_bump_source, clear_coat_bump_strength ) );
-	normal coat_normal = normalize( mix( N, coat_bump_source, clear_coat_bump_strength ) );
+	vector coat_normal_source = noise( "perlin", os_pos * coat_bump_density );
+	normal coat_normal = normalize( mix( N, coat_normal_source, coat_bump_strength ) );
 	// Caculate clear coat Fresnel (Schlick):
 	float coat_fr = simple_fresnel(coat_normal, clear_coat_ior);
 
