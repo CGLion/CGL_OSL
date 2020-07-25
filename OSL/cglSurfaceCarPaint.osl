@@ -1,5 +1,5 @@
 /* 
- * CG-Lion Surface-Car-Paint OSL shader written by Oded Erell (c)2020
+ * CG-Lion Surface-Car-Paint 1.0 OSL shader written by Oded Erell (c)2020 CG-Lion Studio
  *
  * Description:
  * Outputs a car-paint material (surface shader) combining 3 layers:
@@ -11,12 +11,15 @@
  * Cycles for Blender 2.83 (CPU)
  * Arnold 6 for Maya 2020 (CPU)
  * V-Ray Next for 3ds max 2020 (CPU)
+ *
+ * For user manual and more info visit:
+ * https://cg-lion.com/2020/07/25/freebie-advanced-car-paint-osl-shader/
  */
 
 #include "stdosl.h"
 
 // Calculates simplified Fresnel reflection weight (Schlick's approximation)
-// * Needed because not some systems dont support the microfacet closure's built in Fresnel
+// * Needed because some systems dont support the microfacet closure's built in Fresnel
 float simple_fresnel(normal nrm, float ior)
 [[ string help = "Calculate Fresnel reflection weight (Schlick's approximation)" ]]
 {
@@ -26,7 +29,7 @@ float simple_fresnel(normal nrm, float ior)
 
 // Main surface shader:
 surface cglSurfaceCarPaint
-[[ string help = "Dielectric surface combining Diffuse color and specular glossy Fresnel reflections" ]]
+[[ string help = "customizable car-paint material (surface shader)" ]]
 (
 	float base_layer_weight = 1.0
 		[[ string help = "The base layer overall mix weight",
@@ -62,7 +65,7 @@ surface cglSurfaceCarPaint
 		[[ string help = "Metallic flakes metallic roughness",
 		float min = 0.0, float max = 1.0]],
 	float metallic_flakes_direction_spread = 0.1
-		[[ string help = "The amount at which the metallic flakes deviate from the original surface nornal direction",
+		[[ string help = "The amount at which the metallic flakes deviate from the original surface normal direction",
 		float min = 0.0, float max = 5.0]],
 	float metallic_flakes_distance_fade = 2.0
 		[[ string help = "Distance at which the metallic flakes fade completely",
