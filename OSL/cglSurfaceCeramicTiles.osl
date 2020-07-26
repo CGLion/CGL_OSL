@@ -1,5 +1,3 @@
-#include "stdosl.h"
-
 /*
 TODO:
 > Add spec input
@@ -13,6 +11,19 @@ TODO:
 > Handle negative coordinates
 
 */
+
+#include "stdosl.h"
+
+// Calculates simplified Fresnel reflection weight (Schlick's approximation)
+// * Needed because some systems dont support the microfacet closure's built in Fresnel
+float simple_fresnel(normal nrm, float ior)
+[[ string help = "Calculate Fresnel reflection weight (Schlick's approximation)" ]]
+{
+	float r = pow( ( 1.0 - ior ) / ( 1.0 + ior ), 2.0 );
+	return r + ( 1.0 - r ) * pow( 1.0 - fabs( dot( -I, nrm ) ), 5.0 );
+}
+
+
 
 vector getTiledCoords (vector coords, vector tiling)
 {
@@ -71,20 +82,12 @@ surface cglSurfaceCeramicTiles(
 	vector tiling = vector(0.1,0.1,0.1),
 	vector grout_size = vector(0.01,0.01,0.01),
 	vector bevel_size = vector(0.01,0.01,0.01),
-	output closure color bsdf = 0)
+	output closure color surface_out = 0)
 {
 	vector tiledCoords = getTiledCoords(coords, tiling); 
 	normal nrm = getBevelNormal(grout_size, bevel_size, tiledCoords, tile_bump_mult);
-	float A, B;
-	float c = fabs(dot(I, nrm));
-	float g = IOR * IOR - 1 + c * c;
-	float Fr = 1.0;
-	if (g > 0) {
-		g = sqrt(g);
-		A = (g - c) / (g + c);
-		B = (c * (g + c) - 1) / (c * (g - c) + 1);
-		Fr = 0.5 * A * A * (1 + B * B);
-	}
+	
+	float Fr = simple_fresnel(nrm, IOR);
 	
 	float tileMask = getTileGroutMask(grout_size, tiledCoords);
 	color finalColor = mix(grout_color, tile_color, tileMask);
@@ -94,5 +97,5 @@ surface cglSurfaceCeramicTiles(
 	closure color diff = finalColor * diffuse (nrm);
 	closure color baseSpec = microfacet ("ggx", nrm, vector(0,0,1), finalRoughness, finalRoughness, 0, 0);
 	closure color coatSpec = microfacet ("ggx", nrm, vector(0,0,1), tile_gloss_roughness, tile_gloss_roughness, 0, 0);
-	bsdf = ((diff * (1 - Fr) + baseSpec * (Fr * specular_mix)) * (1 - Fr)) + coatSpec * (Fr * (1 - specular_mix));
+	surface_out = ((diff * (1 - Fr) + baseSpec * (Fr * specular_mix)) * (1 - Fr)) + coatSpec * (Fr * (1 - specular_mix));
 }
