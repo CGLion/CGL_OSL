@@ -14,9 +14,6 @@
  * This shader was tested in the following renderers:
  * Cycles for Blender 2.83 (CPU)
  * Arnold 6 for Maya 2020 (CPU)
- * Arnold for 3ds max 2020
- * V-Ray Next for 3ds max 2020 (CPU)
- * Appleseed 2 beta for Blender
  */
  
  #include "stdosl.h"
