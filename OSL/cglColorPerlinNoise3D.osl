@@ -1,15 +1,15 @@
 /* 
- * CG-Lion Color-Perlin-Noise OSL shader written by Oded Erell (c)2020
+ * CG-Lion Color-Perlin-Noise-3D OSL shader written by Oded Erell (c)2020
  *
  * Description:
- * Outputs a blend between 2 color sources according to surface view angle.
+ * Outputs a blend between 2 color sources using a Perlin noise pattern in object space.
  * Parameters:
- * facing_color: The color (or texture) that will appear at perpendicular view angle.
- * side_color: The color (or texture) that will appear at grazing view angle.
- * base_blend: The percent of side_color that is mixed with facing_color at perpendicular view angle.
- * curve_exponent: A power exponent value by which the blend value is raised to control the blend curve.
- * for example, a value of 1.0 will output a linear blend, while a value of 3.0
- * will output a 'slow' curve that shows facing_color at more angles and side_color only at extreme grazing angle.
+ * color_a: The color (or texture) that will be blended at the pattern low values.
+ * color_b: The color (or texture) that will be blended at the pattern high values.
+ * noise_density: The density of the noise pattern (depends on system unit and model scale).
+ * contrast: Increases the pattern contrast by applying levels to the pattern output.
+ * pivot: The contrast levels center value.
+ * curve_exponent: The color blend curve exponent (1.0 being linear).
  *
  * This shader was tested in the following renderers:
  * Cycles for Blender 2.83 (CPU)
@@ -21,28 +21,35 @@
  
  #include "stdosl.h"
  
-shader cglColorAngleBlend
-[[ string help = "3D Perlin-Noise pattern" ]]
+shader cglColorPerlinNoise3D
+[[ string help = "Customizable object-space 3D Perlin-Noise pattern" ]]
 (
 	color color_a = color(0, 0, 0)
-		[[ string help = "The color (or texture) that will appear at perpendicular view angle" ]],
+		[[ string help = "The color (or texture) that will be blended at the pattern low values" ]],
 	color color_b = color(1, 1, 1)
-		[[ string help = "The color (or texture) that will appear at grazing view angle" ]],
-	float noise_scale = 1.0
-		[[ string help = "The percent of side_color that is mixed with facing_color at perpendicular view angle",
+		[[ string help = "The color (or texture) that will be blended at the pattern high values" ]],
+	float noise_density = 1.0
+		[[ string help = "The density of the noise pattern (depends on system unit and model scale)",
 		float min = 0.0001, float max = 10000.0]],
-	float black_level = 0.0
-		[[ string help = "The percent of side_color that is mixed with facing_color at perpendicular view angle",
+	float contrast = 0.0
+		[[ string help = "Increases the pattern contrast by applying levels to the pattern output",
 		float min = 0.0, float max = 1.0]],
-	float white_level = 1.0
-		[[ string help = "The percent of side_color that is mixed with facing_color at perpendicular view angle",
+	float pivot = 0.5
+		[[ string help = "The contrast levels center value",
 		float min = 0.0, float max = 1.0]],
+	float curve_exponent = 1.0
+		[[ string help = "The color blend curve exponent (1.0 being linear)",
+		float min = 0.001, float max = 10.0]],
 	output color color_out = color(1, 1, 1))
 {
 	// Get object-space position:
 	point os_pos = transform("common", "object", P);
 	// Produce the pattern:
-	float noise_val = clamp(noise( "uperlin", os_pos * noise_scale )-black_level,0.0,1.0) / (white_level-black_level);
+	float noise_val_raw = noise( "uperlin", os_pos * noise_density );
+	float contrast_clamped = clamp( contrast, 0.0, 0.999 );
+	float black_level = clamp( ( contrast_clamped * 0.5 ) + ( pivot - 0.5 ), 0.0, 1.0 );
+	float white_level = clamp( 1.0 - ( contrast_clamped * 0.5 ) + ( pivot - 0.5 ), 0.0, 1.0 );
+	float noise_val = pow( clamp( ( noise_val_raw - black_level ) / ( white_level - black_level ), 0.0, 1.0 ) , curve_exponent );
 	// blend and output the final color:
-	color_out = ((color_a * (1 - noise_val)) + (color_b * noise_val));
+	color_out = mix(color_a, color_b, noise_val);
 }
